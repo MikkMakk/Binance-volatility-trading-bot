@@ -1,9 +1,9 @@
 """
 Disclaimer
 
-All investment strategies and investments involve risk of loss. 
-Nothing contained in this program, scripts, code or repositoy should be 
-construed as investment advice.Any reference to an investment's past or 
+All investment strategies and investments involve risk of loss.
+Nothing contained in this program, scripts, code or repositoy should be
+construed as investment advice.Any reference to an investment's past or
 potential performance is not, and should not be construed as, a recommendation
 or as a guarantee of any specific outcome or profit.
 
@@ -51,6 +51,11 @@ from helpers.parameters import (
 # Load creds modules
 from helpers.handle_creds import (
     load_correct_creds, test_api_key
+)
+
+# Load Telegram bot
+from helpers.telegram import (
+    log
 )
 
 
@@ -131,7 +136,7 @@ def wait_for_price():
         # sleep for exactly the amount of time required
         time.sleep((timedelta(minutes=float(TIME_DIFFERENCE / RECHECK_INTERVAL)) - (datetime.now() - historical_prices[hsp_head]['BNB' + PAIR_WITH]['time'])).total_seconds())
 
-    print(f'not enough time has passed yet...Session profit:{session_profit:.2f}%')
+    #print(f'not enough time has passed yet...Session profit:{session_profit:.2f}%')
 
     # retreive latest prices
     get_price()
@@ -143,7 +148,7 @@ def wait_for_price():
         max_price = max(historical_prices, key = lambda x: -1 if x is None else float(x[coin]['price']))
 
         threshold_check = (-1.0 if min_price[coin]['time'] > max_price[coin]['time'] else 1.0) * (float(max_price[coin]['price']) - float(min_price[coin]['price'])) / float(min_price[coin]['price']) * 100
-        
+
         # each coin with higher gains than our CHANGE_IN_PRICE is added to the volatile_coins dict if less than MAX_COINS is not reached.
         if threshold_check > CHANGE_IN_PRICE:
             coins_up +=1
@@ -159,8 +164,8 @@ def wait_for_price():
                     volatile_coins[coin] = round(threshold_check, 3)
                     print(f'{coin} has gained {volatile_coins[coin]}% within the last {TIME_DIFFERENCE} minutes, calculating volume in {PAIR_WITH}')
 
-                else:
-                    print(f'{txcolors.WARNING}{coin} has gained {round(threshold_check, 3)}% within the last {TIME_DIFFERENCE} minutes, but you are holding max number of coins{txcolors.DEFAULT}')
+                #else:
+                    #print(f'{txcolors.WARNING}{coin} has gained {round(threshold_check, 3)}% within the last {TIME_DIFFERENCE} minutes, but you are holding max number of coins{txcolors.DEFAULT}')
 
         elif threshold_check < CHANGE_IN_PRICE:
             coins_down +=1
@@ -178,7 +183,7 @@ def wait_for_price():
             volatile_coins[excoin] = 1
             exnumber +=1
             print(f'External signal received on {excoin}, calculating volume in {PAIR_WITH}')
-    
+
     return volatile_coins, len(volatile_coins), historical_prices[hsp_head]
 
 
@@ -196,7 +201,7 @@ def external_signals():
 
     return external_list
 
-    
+
 def convert_volume():
     '''Converts the volume given in QUANTITY from USDT to the each coin's volume'''
 
@@ -292,6 +297,7 @@ def buy():
                     # Log trade
                     if LOG_TRADES:
                         write_log(f"Buy : {volume[coin]} {coin} - {last_price[coin]['price']}")
+                        log(f"Buy : {volume[coin]} {coin} - {last_price[coin]['price']}")
 
 
         else:
@@ -308,6 +314,9 @@ def sell_coins():
     last_price = get_price(False) # don't populate rolling window
     coins_sold = {}
 
+    if hsp_head == 1:
+        log(f'<b><u>UPDATE</u></b>')
+
     for coin in list(coins_bought):
         # define stop loss and take profit
         TP = float(coins_bought[coin]['bought_at']) + (float(coins_bought[coin]['bought_at']) * coins_bought[coin]['take_profit']) / 100
@@ -318,12 +327,17 @@ def sell_coins():
         BuyPrice = float(coins_bought[coin]['bought_at'])
         PriceChange = float((LastPrice - BuyPrice) / BuyPrice * 100)
 
+        # no action; print once every TIME_DIFFERENCE
+        if hsp_head == 1:
+            print(f'TP or SL not yet reached, not selling {coin} for now {BuyPrice} - {LastPrice} : {txcolors.SELL_PROFIT if PriceChange >= 0. else txcolors.SELL_LOSS}{PriceChange:.2f}%{txcolors.DEFAULT}')
+            log(f'Not selling <b>{coin}</b> for now\n{BuyPrice} - {LastPrice} : <u>{PriceChange:.2f}%</u>\nSession Profit: <b>{session_profit:.2f}%</b>')
+
         # check that the price is above the take profit and readjust SL and TP accordingly if trialing stop loss used
         if float(last_price[coin]['price']) > TP and USE_TRAILING_STOP_LOSS:
             if DEBUG: print("TP reached, adjusting TP and SL accordingly to lock-in profit")
 
             # increasing TP by TRAILING_TAKE_PROFIT (essentially next time to readjust SL)
-            coins_bought[coin]['take_profit'] += TRAILING_TAKE_PROFIT
+            coins_bought[coin]['take_profit'] = PriceChange + TRAILING_TAKE_PROFIT
             coins_bought[coin]['stop_loss'] = coins_bought[coin]['take_profit'] - TRAILING_STOP_LOSS
 
             continue
@@ -357,11 +371,8 @@ def sell_coins():
                     profit = (LastPrice - BuyPrice) * coins_sold[coin]['volume']
                     write_log(f"Sell: {coins_sold[coin]['volume']} {coin} - {BuyPrice} - {LastPrice} Profit: {profit:.2f} {PriceChange:.2f}%")
                     session_profit=session_profit + PriceChange
+                    log(f"Sell: {coins_sold[coin]['volume']} {coin} - {BuyPrice} - {LastPrice} Profit: {profit:.2f} {PriceChange:.2f}%")
             continue
-
-        # no action; print once every TIME_DIFFERENCE
-        if hsp_head == 1:
-            print(f'TP or SL not yet reached, not selling {coin} for now {BuyPrice} - {LastPrice} : {txcolors.SELL_PROFIT if PriceChange >= 0. else txcolors.SELL_LOSS}{PriceChange:.2f}%{txcolors.DEFAULT}')
 
     return coins_sold
 
@@ -449,7 +460,7 @@ if __name__ == '__main__':
     if DEBUG:
         print(f'loaded config below\n{json.dumps(parsed_config, indent=4)}')
         print(f'Your credentials have been loaded from {creds_file}')
-     
+
 
     # Authenticate with the client, Ensure API key is good before continuing
     client = Client(access_key, secret_key)
@@ -486,14 +497,15 @@ if __name__ == '__main__':
 
     if not TEST_MODE:
         if not args.notimeout:
+            log('WARNING: You are using the Mainnet and live funds. Waiting 30 seconds as a security measure')
             print('WARNING: You are using the Mainnet and live funds. Waiting 30 seconds as a security measure')
-            time.sleep(30)
+            time.sleep(1)
 
     # load signalling modules
     for module in SIGNALLING_MODULES:
         mymodule[module] = importlib.import_module(module)
         t = threading.Thread(target=mymodule[module].do_work, args=())
-        t.start()     
+        t.start()
 
     # seed initial prices
     get_price()
