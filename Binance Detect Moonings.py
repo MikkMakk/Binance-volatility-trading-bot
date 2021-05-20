@@ -466,7 +466,7 @@ if __name__ == '__main__':
     client = Client(access_key, secret_key)
     api_ready, msg = test_api_key(client, BinanceAPIException)
     if api_ready is not True:
-        exit(msg)
+        exit(f'{txcolors.SELL_LOSS}{msg}{txcolors.DEFAULT}')
 
     # Use CUSTOM_LIST symbols if CUSTOM_LIST is set to True
     if CUSTOM_LIST: tickers=[line.strip() for line in open('tickers.txt')]
