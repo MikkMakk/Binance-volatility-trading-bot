@@ -21,8 +21,10 @@ def test_api_key(client, BinanceAPIException):
     try:
         client.get_account()
         return True, "API key validated succesfully"
-
-    except BinanceAPIException as e:
+    
+    except BinanceAPIException as e:   
+    
+      
         if e.code == -2015:
             msg = "Your API key is not formatted correctly..."
 
@@ -38,7 +40,9 @@ def test_api_key(client, BinanceAPIException):
             msg = f"Timestamp for this request was 1000ms ahead of the server's time.\n  {issue}\n  {desc}"
         
         else:
-            return False, e
+            msg = e
 
+        return False, msg
+    
     except Exception as e:
         return False, f"Fallback exception occured:\n{e}"

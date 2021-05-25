@@ -496,8 +496,7 @@ if __name__ == '__main__':
     print('Press Ctrl-Q to stop the script')
 
     if not TEST_MODE:
-        if not args.notimeout:
-            log('WARNING: You are using the Mainnet and live funds. Waiting 30 seconds as a security measure')
+        if not args.notimeout: # if notimeout skip this (fast for dev tests)
             print('WARNING: You are using the Mainnet and live funds. Waiting 30 seconds as a security measure')
             time.sleep(1)
 
